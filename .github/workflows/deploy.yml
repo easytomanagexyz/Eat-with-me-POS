@@ -1,27 +1,33 @@
 name: Deploy to EC2
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Copy SSH key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
+
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/Eat-with-me-POS/backend
+        env:
+          HOST: ${{ secrets.EC2_HOST }}
+          USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i key.pem -o StrictHostKeyChecking=no $USER@$HOST '
+            cd /home/ubuntu/eat-with-me/backend
             git pull origin main
             npm install
             npx prisma generate
             npm run build
-            cp -r src/generated dist/
-            pm2 restart postakel-backend
+            cp -r ./prisma ./dist
+            pm2 restart backend
             pm2 save
+          '
