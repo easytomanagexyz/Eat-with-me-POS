@@ -30,7 +30,7 @@ jobs:
           USERNAME: ${{ secrets.EC2_USERNAME }}
         run: |
           ssh -i key.pem -o StrictHostKeyChecking=no $USERNAME@$HOST '
-            cd /home/ubuntu/eat-with-me/backend
+            cd /home/ubuntu/Eat-with-me-POS
             git pull origin main
             npm install
             npx prisma generate
