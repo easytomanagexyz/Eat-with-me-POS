@@ -1,12 +1,8 @@
 import { Request, Response } from 'express';
 // --- FIX: Use a direct relative path to the generated master client ---
 import { PrismaClient as MasterPrismaClient } from '../generated/master';
-import {
-  createTenantDatabaseAndUser,
-  getTenantPrismaClient,
-  runMigrationsForTenant,
-  dropTenantDatabaseAndUser,
-} from '../utils/dbManager';
+import { createTenantDatabaseAndUser, getTenantPrismaClientWithParams, runMigrationsForTenant, dropTenantDatabaseAndUser } from '../utils/dbManager';
+import { preloadSecrets } from '../utils/awsSecrets';
 import bcrypt from 'bcryptjs';
 
 const masterPrisma = new MasterPrismaClient();
@@ -53,6 +49,11 @@ export async function signup(req: Request, res: Response) {
   let restaurantId: string | null = null;
   let dbName: string | null = null;
   let dbUser: string | null = null;
+  let dbPassword: string | null = null;
+    let masterDbUser: string | null = null;
+    let masterDbPass: string | null = null;
+    let masterDbHost: string | null = null;
+    let masterDbPort: string | null = null;
 
   try {
     console.info('[Signup] Checking for existing tenant', { email });
@@ -67,11 +68,31 @@ export async function signup(req: Request, res: Response) {
     restaurantId = await generateUniqueRestaurantId();
     dbName = `tenant_${restaurantId}`;
     dbUser = `user_${restaurantId}`;
-    const dbPassword = `pass_${Math.random().toString(36).slice(-8)}`;
+    dbPassword = `pass_${Math.random().toString(36).slice(-8)}`;
+
+    // Load DB connection secrets from AWS Parameter Store
+    const secrets = await preloadSecrets([
+      '/eatwithme/db-user',
+      '/eatwithme/db-password',
+      '/eatwithme/db-host',
+      '/eatwithme/db-port',
+    ]);
+      masterDbUser = secrets['/eatwithme/db-user'];
+      masterDbPass = secrets['/eatwithme/db-password'];
+      masterDbHost = secrets['/eatwithme/db-host'];
+      masterDbPort = secrets['/eatwithme/db-port'];
 
     // 2. Create DB and User in PostgreSQL
     console.info('[Signup] Creating tenant database and user', { restaurantId, dbName, dbUser });
-    await createTenantDatabaseAndUser(dbName, dbUser, dbPassword);
+    await createTenantDatabaseAndUser(
+      dbName,
+      dbUser,
+      dbPassword,
+      masterDbUser,
+      masterDbPass,
+      masterDbHost,
+      masterDbPort
+    );
 
     // 3. Create tenant record in Master DB
     console.info('[Signup] Creating tenant record in master DB', { restaurantId });
@@ -88,12 +109,24 @@ export async function signup(req: Request, res: Response) {
     });
 
     // 4. Apply migrations to the new tenant DB
-  console.info('[Signup] Running migrations for tenant', { restaurantId });
-  await runMigrationsForTenant(dbName);
+    console.info('[Signup] Running migrations for tenant', { restaurantId });
+    await runMigrationsForTenant(
+      dbName,
+      masterDbUser,
+      masterDbPass,
+      masterDbHost,
+      masterDbPort
+    );
 
     // 5. Connect to the new tenant DB to seed initial data
-  console.info('[Signup] Connecting to tenant DB', { restaurantId });
-    const tenantPrisma = getTenantPrismaClient(dbName);
+    console.info('[Signup] Connecting to tenant DB', { restaurantId });
+    const tenantPrisma = getTenantPrismaClientWithParams(
+      dbName,
+      masterDbUser,
+      masterDbPass,
+      masterDbHost,
+      masterDbPort
+    );
 
     // 6. Seed Admin Role
   console.info('[Signup] Seeding admin role', { restaurantId });
@@ -173,10 +206,17 @@ export async function signup(req: Request, res: Response) {
   } catch (error: any) {
   console.error('[Signup] Failed', { restaurantId, email, error: error?.message, stack: error?.stack });
     // Cleanup logic in case of failure
-    if (restaurantId && dbName && dbUser) {
+    if (restaurantId && dbName && dbUser && dbPassword) {
       console.log(`Attempting to clean up resources for failed signup of restaurantId: ${restaurantId}`);
       try {
-        await dropTenantDatabaseAndUser(dbName, dbUser);
+        await dropTenantDatabaseAndUser(
+          dbName,
+          dbUser,
+          masterDbUser || '',
+          masterDbPass || '',
+          masterDbHost || '',
+          masterDbPort || ''
+        );
         // Also remove the record from the master DB if it was created
         await masterPrisma.tenant.delete({ where: { restaurantId } }).catch(() => {});
         console.log(`Cleanup successful for restaurantId: ${restaurantId}`);
