@@ -16,12 +16,20 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
           chmod 600 key.pem
 
+      - name: Debug Secrets
+        env:
+          HOST: ${{ secrets.EC2_HOST }}
+          USERNAME: ${{ secrets.EC2_USERNAME }}
+        run: |
+          echo "USERNAME=$USERNAME"
+          echo "HOST=$HOST"
+
       - name: Deploy to EC2
         env:
           HOST: ${{ secrets.EC2_HOST }}
-          USER: ${{ secrets.EC2_USER }}
+          USERNAME: ${{ secrets.EC2_USERNAME }}
         run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no $USER@$HOST '
+          ssh -i key.pem -o StrictHostKeyChecking=no $USERNAME@$HOST '
             cd /home/ubuntu/eat-with-me/backend
             git pull origin main
             npm install
