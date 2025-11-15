@@ -4,6 +4,14 @@ import { execSync } from 'child_process';
  * This script is executed as a separate process to avoid file-locking issues on Windows.
  * It receives the tenant's database URL via an environment variable and runs 'prisma db push'.
  */
+/**
+ * This script is executed as a separate process to avoid file-locking issues on Windows.
+ * It receives the tenant's database URL via an environment variable and runs 'prisma db push'.
+ *
+ * Instead of relying on .env, pass DATABASE_URL_TENANT as an environment variable when spawning this script.
+ * Example:
+ *   spawn('node', ['src/utils/runTenantMigration.js'], { env: { ...process.env, DATABASE_URL_TENANT: url } })
+ */
 function runMigration() {
   const tenantDbUrl = process.env.DATABASE_URL_TENANT;
 
@@ -17,12 +25,13 @@ function runMigration() {
   try {
     // Execute the prisma command. It will use the DATABASE_URL_TENANT from the environment.
     execSync(`npx prisma db push --schema=./prisma/schema.prisma --force-reset`, {
-      stdio: 'inherit', // Show the output of the command in your server's console
+      stdio: 'inherit',
+      env: { ...process.env, DATABASE_URL: tenantDbUrl, DATABASE_URL_TENANT: tenantDbUrl },
     });
     console.log(`[Migration Script] Successfully applied schema to the new tenant database.`);
   } catch (error) {
     console.error(`[Migration Script] Failed to apply schema:`, error);
-    process.exit(1); // Exit with an error code
+    process.exit(1);
   }
 }
 

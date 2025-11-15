@@ -11,6 +11,7 @@
     "postbuild": "cp -r src/generated dist/"
   },
   "dependencies": {
+    "@aws-sdk/client-ssm": "^3.932.0",
     "@prisma/client": "^4.16.2",
     "@types/cookie-parser": "^1.4.10",
     "@types/ioredis": "^4.28.10",
