@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node build/server.js",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "postbuild": "cp -r src/generated dist/"
   },
   "dependencies": {
     "@prisma/client": "^4.16.2",
