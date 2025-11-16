@@ -6,7 +6,7 @@ import app from './app';
 import { liveUpdates } from './utils/liveUpdates';
 import { setMasterDbUrlFromSSM } from './utils/dbManager';
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT ;
 
 (async () => {
   // Fetch and set master DB URL from SSM before Prisma is used
