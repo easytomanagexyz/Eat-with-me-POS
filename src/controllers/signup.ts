@@ -19,9 +19,7 @@ async function generateUniqueRestaurantId(): Promise<string> {
 }
 
 export async function signup(req: Request, res: Response) {
-  // Ensure master DB URL is set from AWS SSM before Prisma client is initialized
-  await setMasterDbUrlFromSSM('/eatwithme/master-db-url'); // <-- update with your actual SSM parameter name
-  masterPrisma = new MasterPrismaClient();
+  // masterPrisma should be initialized at app startup, not here
   const { restaurantName, adminName, email, password, confirmPassword, useRedis, country } = req.body;
 
   const normalizedUseRedis = typeof useRedis === 'string'
