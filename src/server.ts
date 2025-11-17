@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import app from './app';
+import { createApp } from './app';
 import { liveUpdates } from './utils/liveUpdates';
 import { setMasterDbUrlFromSSM, setMasterDbUrlFromSecretsManager } from './utils/dbManager';
 
@@ -23,6 +23,7 @@ const PORT = process.env.PORT || 4000;
     liveUpdates.configure(process.env.REDIS_URL);
   }
 
+  const app = await createApp();
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
