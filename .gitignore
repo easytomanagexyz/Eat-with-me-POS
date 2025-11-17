@@ -1,0 +1,45 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+logs/
+*.log
+
+# Build
+/dist/
+/build/
+
+# Environment
+.env
+.env.*
+
+# Prisma
+prisma/generated/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Others
+*.sqlite
+*.db
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.idea/
+*.swp
+
+# Misc
+*.local
+
+# Ignore test output
+/test-output/
