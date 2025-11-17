@@ -34,12 +34,11 @@ import { budgetRoutes } from './routes/budget';
 // These should be awaited before any Prisma client is initialized anywhere in your app
 
 
-let app: express.Express;
 
-(async () => {
+export async function createApp(): Promise<express.Express> {
 	await setMasterDbUrlFromSSM('/prod/master-db-url'); // update with your actual SSM parameter name
 
-	app = express();
+	const app = express();
 	app.use(cors());
 	app.use(express.json());
 
@@ -72,6 +71,6 @@ let app: express.Express;
 	app.use('/api/loyalty', loyaltyRoutes);
 	app.use('/api/marketing', marketingRoutes);
 	app.use('/api/shifts', shiftRoutes);
-})();
 
-export default app;
+	return app;
+}
