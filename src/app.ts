@@ -33,42 +33,45 @@ import { budgetRoutes } from './routes/budget';
 // Fetch DB URLs from AWS SSM (or use Secrets Manager helpers if preferred)
 // These should be awaited before any Prisma client is initialized anywhere in your app
 
-// Ensure master DB URL is set before app is used
-await setMasterDbUrlFromSSM('/prod/master-db-url'); // update with your actual SSM parameter name
 
-const app = express();
+let app: express.Express;
 
-app.use(cors());
-app.use(express.json());
+(async () => {
+	await setMasterDbUrlFromSSM('/prod/master-db-url'); // update with your actual SSM parameter name
 
-// --- Public & Authentication Routes ---
-app.use('/api', authRoutes);
+	app = express();
+	app.use(cors());
+	app.use(express.json());
 
-// --- Protected Routes ---
-// All routes below this point require a tenant context and a valid authentication token.
-app.use('/api', authenticateToken);
-app.use('/api', tenantPrisma);
+	// --- Public & Authentication Routes ---
+	app.use('/api', authRoutes);
 
-// Wire up all your API routes to the /api base path
-app.use('/api/staff', staffRoutes);
-app.use('/api/menu', menuRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/tables', tableRoutes);
-app.use('/api/kitchen', kitchenRoutes);
-app.use('/api/category-role', categoryRoleRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/suppliers', supplierRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/customers', customerRoutes);
-app.use('/api/reservations', reservationRoutes);
-app.use('/api/expenses', expenseRoutes);
-app.use('/api/recipes', recipeRoutes);
-app.use('/api/budgets', budgetRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/loyalty', loyaltyRoutes);
-app.use('/api/marketing', marketingRoutes);
-app.use('/api/shifts', shiftRoutes);
+	// --- Protected Routes ---
+	// All routes below this point require a tenant context and a valid authentication token.
+	app.use('/api', authenticateToken);
+	app.use('/api', tenantPrisma);
+
+	// Wire up all your API routes to the /api base path
+	app.use('/api/staff', staffRoutes);
+	app.use('/api/menu', menuRoutes);
+	app.use('/api/orders', orderRoutes);
+	app.use('/api/tables', tableRoutes);
+	app.use('/api/kitchen', kitchenRoutes);
+	app.use('/api/category-role', categoryRoleRoutes);
+	app.use('/api/settings', settingsRoutes);
+	app.use('/api/inventory', inventoryRoutes);
+	app.use('/api/suppliers', supplierRoutes);
+	app.use('/api/reports', reportRoutes);
+	app.use('/api/customers', customerRoutes);
+	app.use('/api/reservations', reservationRoutes);
+	app.use('/api/expenses', expenseRoutes);
+	app.use('/api/recipes', recipeRoutes);
+	app.use('/api/budgets', budgetRoutes);
+	app.use('/api/dashboard', dashboardRoutes);
+	app.use('/api/ai', aiRoutes);
+	app.use('/api/loyalty', loyaltyRoutes);
+	app.use('/api/marketing', marketingRoutes);
+	app.use('/api/shifts', shiftRoutes);
+})();
 
 export default app;
