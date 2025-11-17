@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
 // --- FIX: Use a direct relative path to the generated master client ---
 import { PrismaClient as MasterPrismaClient } from '../generated/master';
-import { createTenantDatabaseAndUser, getTenantPrismaClientWithParams, runMigrationsForTenant, dropTenantDatabaseAndUser } from '../utils/dbManager';
+import { createTenantDatabaseAndUser, getTenantPrismaClientWithParams, runMigrationsForTenant, dropTenantDatabaseAndUser, setMasterDbUrlFromSSM } from '../utils/dbManager';
 import { preloadSecrets } from '../utils/awsSecrets';
 import bcrypt from 'bcryptjs';
 
-const masterPrisma = new MasterPrismaClient();
+let masterPrisma: MasterPrismaClient;
 
 async function generateUniqueRestaurantId(): Promise<string> {
   let isUnique = false;
@@ -19,6 +19,9 @@ async function generateUniqueRestaurantId(): Promise<string> {
 }
 
 export async function signup(req: Request, res: Response) {
+  // Ensure master DB URL is set from AWS SSM before Prisma client is initialized
+  await setMasterDbUrlFromSSM('/eatwithme/master-db-url'); // <-- update with your actual SSM parameter name
+  masterPrisma = new MasterPrismaClient();
   const { restaurantName, adminName, email, password, confirmPassword, useRedis, country } = req.body;
 
   const normalizedUseRedis = typeof useRedis === 'string'

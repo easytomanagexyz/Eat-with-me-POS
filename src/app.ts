@@ -1,6 +1,7 @@
 /** @format */
 
 import express from 'express';
+import { setMasterDbUrlFromSSM } from './utils/dbManager';
 import cors from 'cors';
 import { tenantPrisma } from './middleware/tenantPrisma';
 import { authenticateToken } from './middleware/auth';
@@ -27,6 +28,13 @@ import { marketingRoutes } from './routes/marketing';
 import { shiftRoutes } from './routes/shifts';
 import { recipeRoutes } from './routes/recipe';
 import { budgetRoutes } from './routes/budget';
+
+
+// Fetch DB URLs from AWS SSM (or use Secrets Manager helpers if preferred)
+// These should be awaited before any Prisma client is initialized anywhere in your app
+
+// Ensure master DB URL is set before app is used
+await setMasterDbUrlFromSSM('/prod/master-db-url'); // update with your actual SSM parameter name
 
 const app = express();
 

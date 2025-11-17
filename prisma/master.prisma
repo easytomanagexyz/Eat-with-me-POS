@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL_MASTER")
+  url      = env("DATABASE_URL_MASTER") // This env variable should be set from AWS SSM or Secrets Manager at runtime
 }
 
 model Tenant {
