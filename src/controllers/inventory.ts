@@ -80,7 +80,7 @@ export async function getInventoryCategories(req: Request, res: Response) {
     const prisma = (req as any).prisma as PrismaClient;
     const categories = await prisma.inventoryItem.findMany({ distinct: ["category"], select: { category: true } });
     console.log(`GET /inventory/categories - fetched categories: count=${categories.length}`);
-    return res.json(categories.map((c) => c.category));
+    return res.json(categories.map((c: { category: any; }) => c.category));
   } catch (err) {
     console.error("GET /inventory/categories error:", (err as any).message || err);
     return res.status(500).json({ error: "Failed to get categories" });
@@ -92,18 +92,18 @@ export async function getInventoryStats(req: Request, res: Response) {
     const prisma = (req as any).prisma as PrismaClient;
     const items = await prisma.inventoryItem.findMany();
     const total = items.length;
-    const lowStock = items.reduce((count, it) => {
+    const lowStock = items.reduce((count: number, it: any) => {
       const current = Number((it as any).currentStock) || 0;
       const min = Number((it as any).minStock) || 0;
       return current <= min ? count + 1 : count;
     }, 0);
-    const expiringSoon = items.reduce((count, it) => {
+    const expiringSoon = items.reduce((count: number, it: any) => {
        const expiry = (it as any).expiryDate;
        if (!expiry) return count;
        const days = Math.ceil(((new Date(expiry)).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
        return days <= 7 && days >= 0 ? count + 1 : count;
      }, 0);
-    const totalValue = items.reduce((sum, it) => {
+    const totalValue = items.reduce((sum: number, it: any) => {
       const cs = Number((it as any).currentStock) || 0;
       const cpu = Number((it as any).costPerUnit) || 0;
       return sum + cs * cpu;
