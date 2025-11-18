@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 // --- FIX: Use a direct relative path to the generated master client ---
 import { PrismaClient as MasterPrismaClient } from '../generated/master';
 const masterPrisma = new MasterPrismaClient();
-import { createTenantDatabaseAndUser, getTenantPrismaClientWithParams, runMigrationsForTenant, dropTenantDatabaseAndUser, setMasterDbUrlFromSSM } from '../utils/dbManager';
+import { createTenantDatabaseAndUser, getTenantPrismaClientWithParams, runMigrationsForTenant, dropTenantDatabaseAndUser } from '../utils/dbManager';
 import { preloadSecrets } from '../utils/awsSecrets';
 import bcrypt from 'bcryptjs';
 
