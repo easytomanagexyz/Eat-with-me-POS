@@ -39,8 +39,8 @@ jobs:
             rm -rf node_modules dist
             npm install
             npm install @prisma/client
-            npx prisma generate --schema=prisma/master.prisma
-            npx prisma generate --schema=prisma/schema.prisma
+            npx prisma generate --schema=prisma/master/master.prisma
+            npx prisma generate --schema=prisma/tenant/schema.prisma
             npx tsc
             # --- Copy generated Prisma master client to dist directory ---
             mkdir -p dist/generated
