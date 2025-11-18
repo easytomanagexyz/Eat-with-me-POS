@@ -52,25 +52,22 @@ import { preloadSecrets } from "../utils/awsSecrets";
 const masterPrisma = new MasterPrismaClient();
 
 export async function tenantPrisma(req: Request, res: Response, next: NextFunction) {
-  const headerRestaurantId = req.headers["x-restaurant-id"] as string | undefined;
+  const headerRestaurantId = req.headers["x-restaurant-id"] as string;
   const bodyRestaurantId =
     req.body && typeof req.body === "object"
       ? (req.body as Record<string, any>).restaurantId
       : undefined;
 
-  const restaurantId =
-    headerRestaurantId || bodyRestaurantId || (req as any).restaurantId;
+  const restaurantId = headerRestaurantId || bodyRestaurantId || (req as any).restaurantId;
 
-  // Allow login to continue without forcing header
   if (!restaurantId) {
     if (req.path === "/login") return next();
-    return res
-      .status(400)
-      .json({ message: "Restaurant ID is required in the X-Restaurant-Id header." });
+    return res.status(400).json({
+      message: "Restaurant ID is required in X-Restaurant-Id header.",
+    });
   }
 
   try {
-    // Fetch tenant connection details from master DB
     const tenant = await masterPrisma.tenant.findUnique({
       where: { restaurantId },
     });
@@ -79,7 +76,6 @@ export async function tenantPrisma(req: Request, res: Response, next: NextFuncti
       return res.status(404).json({ message: "Restaurant not found." });
     }
 
-    // Load master DB connection parameters from SSM
     const secrets = await preloadSecrets([
       "/eatwithme/db-user",
       "/eatwithme/db-password",
@@ -90,9 +86,8 @@ export async function tenantPrisma(req: Request, res: Response, next: NextFuncti
     const dbUser = secrets["/eatwithme/db-user"];
     const dbPass = secrets["/eatwithme/db-password"];
     const dbHost = secrets["/eatwithme/db-host"];
-    const dbPort = secrets["/eatwithme/db-port"];
+    const dbPort = secrets["/eatwithme/db-port"].replace(/"/g, "");
 
-    // Create or reuse tenant prisma client
     const prisma = getTenantPrismaClientWithParams(
       tenant.dbName,
       dbUser,
@@ -101,16 +96,15 @@ export async function tenantPrisma(req: Request, res: Response, next: NextFuncti
       dbPort
     );
 
-    // attach to req for controllers
     (req as any).prisma = prisma;
     (req as any).tenant = tenant;
     (req as any).useRedis = Boolean(tenant.useRedis);
 
     next();
-  } catch (error) {
-    console.error("Error connecting to tenant database:", error);
-    return res
-      .status(500)
-      .json({ message: "Internal server error during DB connection." });
+  } catch (err) {
+    console.error("Tenant DB connection error:", err);
+    return res.status(500).json({
+      message: "Failed to connect to tenant DB.",
+    });
   }
 }
