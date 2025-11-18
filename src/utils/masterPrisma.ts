@@ -1,3 +1,3 @@
-import { PrismaClient as MasterPrismaClient } from '../src/generated/master';
+import { PrismaClient as MasterPrismaClient } from '../generated/master';
 
 export const masterPrisma = new MasterPrismaClient();
