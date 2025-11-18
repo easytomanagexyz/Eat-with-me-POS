@@ -255,7 +255,8 @@ export async function runMigrationsForTenant(
   console.log("⚠️  MIGRATION URL DEBUG:", url);
   console.log("⚠️  RAW PARAMS:", { dbUser, dbPass, dbHost, dbPort });
 
-  const command = `npx prisma migrate deploy --schema=./prisma/tenant/schema.prisma`;
+  const command = `npx prisma migrate deploy --schema=${process.cwd()}/prisma/tenant/schema.prisma`;
+
 
   await execPromise(command, {
     env: {
