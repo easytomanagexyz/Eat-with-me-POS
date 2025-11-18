@@ -242,48 +242,121 @@ export async function createTenantDatabaseAndUser(
 // }
 
 
-export async function runMigrationsForTenant(
+import { exec } from "child_process";
+import util from "util";
+import { PrismaClient as TenantPrismaClient } from "@prisma/client";
+import { getParameter } from "./awsSecrets";
+import { getSecret } from "./awsSecretsManager";
+
+const execPromise = util.promisify(exec);
+
+// Cache Prisma clients
+const prismaClients: { [key: string]: TenantPrismaClient } = {};
+
+function safeUrlEncode(value: string) {
+  return encodeURIComponent(value);
+}
+
+/**
+ * ------ Build PSQL Connection String ------
+ */
+function buildPsqlConnection(user: string, pass: string, host: string, port: string, db: string) {
+  const encodedPass = safeUrlEncode(pass);
+  return `psql "postgresql://${user}:${encodedPass}@${host}:${port}/${db}"`;
+}
+
+/**
+ * ------------- TENANT PRISMA CLIENT -------------
+ */
+export function getTenantPrismaClientWithParams(
   dbName: string,
   dbUser: string,
   dbPass: string,
   dbHost: string,
-  dbPort: string,
-  secretId?: string
-) {
-  let url = `postgresql://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${dbName}?schema=public`;
+  dbPort: string
+): TenantPrismaClient {
+  if (prismaClients[dbName]) return prismaClients[dbName];
 
-  console.log("⚠️  MIGRATION URL DEBUG:", url);
-  console.log("⚠️  RAW PARAMS:", { dbUser, dbPass, dbHost, dbPort });
+  const safePass = safeUrlEncode(dbPass);
+  const url = `postgresql://${dbUser}:${safePass}@${dbHost}:${dbPort}/${dbName}?schema=public`;
 
-  const command = `npx prisma migrate deploy --schema=${process.cwd()}/prisma/tenant/schema.prisma`;
+  process.env.DATABASE_URL_TENANT = url;
+  process.env.DATABASE_URL = url;
 
-
-  await execPromise(command, {
-    env: {
-      ...process.env,
-      DATABASE_URL: url,
-      DATABASE_URL_TENANT: url,
-    }
+  const client = new TenantPrismaClient({
+    datasources: { db: { url } }
   });
+
+  prismaClients[dbName] = client;
+  return client;
 }
 
-
 /**
- * Drop tenant DB + user
+ * ------------ CREATE TENANT DB + USER ------------
  */
-export async function dropTenantDatabaseAndUser(
+export async function createTenantDatabaseAndUser(
   dbName: string,
-  tenantDbUser: string,
+  tenantUser: string,
+  tenantPass: string,
   rootUser: string,
   rootPass: string,
   host: string,
   port: string
 ) {
-  const psql = buildPsqlConnection(rootUser, rootPass, host, port, "master-db");
+  const psql = buildPsqlConnection(rootUser, rootPass, host, port, "postgres");
+
+  await execPromise(`${psql} -c "CREATE USER ${tenantUser} WITH PASSWORD '${tenantPass}';"`);
+  await execPromise(`${psql} -c "CREATE DATABASE ${dbName};"`);
+  await execPromise(`${psql} -c "GRANT ALL PRIVILEGES ON DATABASE ${dbName} TO ${tenantUser};"`);
+}
+
+/**
+ * ----------- RUN PRISMA MIGRATIONS FOR TENANT -----------
+ */
+export async function runMigrationsForTenant(
+  dbName: string,
+  rootUser: string,
+  rootPass: string,
+  host: string,
+  port: string
+) {
+  const safePass = safeUrlEncode(rootPass);
+  const url = `postgresql://${rootUser}:${safePass}@${host}:${port}/${dbName}?schema=public`;
+
+  console.log(`⚠️ MIGRATION URL (safe): ${url}`);
+
+  process.env.DATABASE_URL = url;
+  process.env.DATABASE_URL_TENANT = url;
+
+  // FULL PATH — FIXES Prisma "schema not found"
+  const command = `npx prisma migrate deploy --schema=/home/ubuntu/Eat-with-me-POS/prisma/tenant/schema.prisma`;
+
+  await execPromise(command, {
+    env: {
+      ...process.env,
+      DATABASE_URL: url,
+      DATABASE_URL_TENANT: url
+    }
+  });
+}
+
+/**
+ * ------------ DROP TENANT DB + USER (ON FAILURE) ------------
+ */
+export async function dropTenantDatabaseAndUser(
+  dbName: string,
+  tenantUser: string,
+  rootUser: string,
+  rootPass: string,
+  host: string,
+  port: string
+) {
+  const psql = buildPsqlConnection(rootUser, rootPass, host, port, "postgres");
 
   await execPromise(
     `${psql} -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${dbName}' AND pid <> pg_backend_pid();"`
   );
+
   await execPromise(`${psql} -c "DROP DATABASE IF EXISTS ${dbName};"`);
-  await execPromise(`${psql} -c "DROP USER IF EXISTS ${tenantDbUser};"`);
+  await execPromise(`${psql} -c "DROP USER IF EXISTS ${tenantUser};"`);
 }
