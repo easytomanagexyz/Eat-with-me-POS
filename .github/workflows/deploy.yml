@@ -16,14 +16,6 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
           chmod 600 key.pem
 
-      - name: Debug Secrets
-        env:
-          HOST: ${{ secrets.EC2_HOST }}
-          USERNAME: ${{ secrets.EC2_USERNAME }}
-        run: |
-          echo "USERNAME=$USERNAME"
-          echo "HOST=$HOST"
-
       - name: Deploy to EC2
         env:
           HOST: ${{ secrets.EC2_HOST }}
@@ -32,19 +24,37 @@ jobs:
           ssh -i key.pem -o StrictHostKeyChecking=no $USERNAME@$HOST '
             set -e
             cd /home/ubuntu/Eat-with-me-POS
-            # Discard any local changes (BEFORE pulling new code)
+
+            echo "⚠️ Backing up .env"
+            cp -f .env /tmp/env-backup || true
+
+            echo "🔄 Cleaning repo WITHOUT touching .env"
             git reset --hard
-            git clean -fd
+            git clean -fd -e .env
+
+            echo "⬇️ Pulling new code"
             git pull origin main
+
+            echo "♻️ Restoring .env"
+            cp -f /tmp/env-backup .env || true
+
+            echo "📦 Installing dependencies"
             rm -rf node_modules dist
             npm install
             npm install @prisma/client
+
+            echo "🔧 Generating Prisma Clients"
             npx prisma generate --schema=prisma/master/master.prisma
             npx prisma generate --schema=prisma/tenant/schema.prisma
+
+            echo "🏗️ Building TypeScript"
             npx tsc
-            # --- Copy generated Prisma master client to dist directory ---
+
+            echo "📁 Copying Prisma master client to dist"
             mkdir -p dist/generated
             cp -r src/generated/master dist/generated/
-            # Make script executable and run it
+
+            echo "🚀 Starting server"
             chmod +x scripts/load-env-and-start.sh
-            ./scripts/load-env-and-start.sh          '
+            ./scripts/load-env-and-start.sh
+          '
