@@ -250,24 +250,24 @@ import { getSecret } from "./awsSecretsManager";
 
 const execPromise = util.promisify(exec);
 
-// Cache Prisma clients
-const prismaClients: { [key: string]: TenantPrismaClient } = {};
+// Cache for Prisma Clients
+const prismaClients: Record<string, TenantPrismaClient> = {};
 
-function safeUrlEncode(value: string) {
-  return encodeURIComponent(value);
+function encode(val: string) {
+  return encodeURIComponent(val);
 }
 
-/**
- * ------ Build PSQL Connection String ------
- */
-function buildPsqlConnection(user: string, pass: string, host: string, port: string, db: string) {
-  const encodedPass = safeUrlEncode(pass);
+//
+// Build a valid psql connection
+//
+function buildPsql(user: string, pass: string, host: string, port: string, db: string) {
+  const encodedPass = encode(pass);
   return `psql "postgresql://${user}:${encodedPass}@${host}:${port}/${db}"`;
 }
 
-/**
- * ------------- TENANT PRISMA CLIENT -------------
- */
+//
+// Tenant Prisma Client
+//
 export function getTenantPrismaClientWithParams(
   dbName: string,
   dbUser: string,
@@ -277,11 +277,11 @@ export function getTenantPrismaClientWithParams(
 ): TenantPrismaClient {
   if (prismaClients[dbName]) return prismaClients[dbName];
 
-  const safePass = safeUrlEncode(dbPass);
+  const safePass = encode(dbPass);
   const url = `postgresql://${dbUser}:${safePass}@${dbHost}:${dbPort}/${dbName}?schema=public`;
 
-  process.env.DATABASE_URL_TENANT = url;
   process.env.DATABASE_URL = url;
+  process.env.DATABASE_URL_TENANT = url;
 
   const client = new TenantPrismaClient({
     datasources: { db: { url } }
@@ -291,9 +291,9 @@ export function getTenantPrismaClientWithParams(
   return client;
 }
 
-/**
- * ------------ CREATE TENANT DB + USER ------------
- */
+//
+// Create Tenant DB + User
+//
 export async function createTenantDatabaseAndUser(
   dbName: string,
   tenantUser: string,
@@ -303,16 +303,16 @@ export async function createTenantDatabaseAndUser(
   host: string,
   port: string
 ) {
-  const psql = buildPsqlConnection(rootUser, rootPass, host, port, "postgres");
+  const psql = buildPsql(rootUser, rootPass, host, port, "postgres");
 
   await execPromise(`${psql} -c "CREATE USER ${tenantUser} WITH PASSWORD '${tenantPass}';"`);
   await execPromise(`${psql} -c "CREATE DATABASE ${dbName};"`);
   await execPromise(`${psql} -c "GRANT ALL PRIVILEGES ON DATABASE ${dbName} TO ${tenantUser};"`);
 }
 
-/**
- * ----------- RUN PRISMA MIGRATIONS FOR TENANT -----------
- */
+//
+// Run Prisma migrations for tenant
+//
 export async function runMigrationsForTenant(
   dbName: string,
   rootUser: string,
@@ -320,15 +320,15 @@ export async function runMigrationsForTenant(
   host: string,
   port: string
 ) {
-  const safePass = safeUrlEncode(rootPass);
+  const safePass = encode(rootPass);
+
   const url = `postgresql://${rootUser}:${safePass}@${host}:${port}/${dbName}?schema=public`;
 
-  console.log(`⚠️ MIGRATION URL (safe): ${url}`);
+  console.log("⚠️ MIGRATION URL:", url);
 
   process.env.DATABASE_URL = url;
   process.env.DATABASE_URL_TENANT = url;
 
-  // FULL PATH — FIXES Prisma "schema not found"
   const command = `npx prisma migrate deploy --schema=/home/ubuntu/Eat-with-me-POS/prisma/tenant/schema.prisma`;
 
   await execPromise(command, {
@@ -340,9 +340,9 @@ export async function runMigrationsForTenant(
   });
 }
 
-/**
- * ------------ DROP TENANT DB + USER (ON FAILURE) ------------
- */
+//
+// Drop Tenant DB
+//
 export async function dropTenantDatabaseAndUser(
   dbName: string,
   tenantUser: string,
@@ -351,7 +351,7 @@ export async function dropTenantDatabaseAndUser(
   host: string,
   port: string
 ) {
-  const psql = buildPsqlConnection(rootUser, rootPass, host, port, "postgres");
+  const psql = buildPsql(rootUser, rootPass, host, port, "postgres");
 
   await execPromise(
     `${psql} -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${dbName}' AND pid <> pg_backend_pid();"`
