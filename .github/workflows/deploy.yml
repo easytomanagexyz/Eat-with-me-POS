@@ -25,24 +25,29 @@ jobs:
             set -e
             cd /home/ubuntu/Eat-with-me-POS
 
+            echo "🔐 Fixing permissions"
+            sudo chown -R ubuntu:ubuntu /home/ubuntu/Eat-with-me-POS
+            sudo chmod -R u+rwX /home/ubuntu/Eat-with-me-POS
 
             echo "⚠️ Backing up .env"
             cp -f .env /tmp/env-backup || true
 
-            echo "🧹 Cleaning repo"
-            git reset --hard
-            git clean -fd
-            git pull origin main
+            echo "🧹 Cleaning repo safely"
+            git fetch --all
+            git reset --hard origin/main
+            git clean -fdx -e .env   # preserve .env only
 
             echo "♻️ Restoring .env"
             cp -f /tmp/env-backup .env || true
 
+            echo "📦 Cleaning node_modules and cache"
+            rm -rf node_modules dist .prisma
+            npm cache clean --force
+
             echo "📦 Installing dependencies"
-            rm -rf node_modules dist
-            npm install
+            npm install --legacy-peer-deps
 
             echo "🔧 Generating Prisma Clients"
-            npm install @prisma/client
             npx prisma generate --schema=prisma/master/master.prisma
             npx prisma generate --schema=prisma/tenant/schema.prisma
 
@@ -54,9 +59,9 @@ jobs:
             cp -r src/generated/master dist/generated/ || true
             cp -r src/generated/tenant dist/generated/ || true
 
-            echo "🚀 Running environment loader"
+            echo "🚀 Starting backend"
             chmod +x scripts/load-env-and-start.sh
             ./scripts/load-env-and-start.sh
 
-          
+            echo "🎉 Deployment completed!"
           '
