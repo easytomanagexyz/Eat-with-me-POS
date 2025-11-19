@@ -25,14 +25,15 @@ jobs:
             set -e
             cd /home/ubuntu/Eat-with-me-POS
 
+            echo "🔓 Temporarily unlocking .env for write"
+            chmod 600 .env || true
+
             echo "⚠️ Backing up .env"
             cp -f .env /tmp/env-backup || true
 
-            echo "🔄 Cleaning repo WITHOUT touching .env"
+            echo "🧹 Cleaning repo"
             git reset --hard
-            git clean -fd -e .env
-
-            echo "⬇️ Pulling new code"
+            git clean -fd
             git pull origin main
 
             echo "♻️ Restoring .env"
@@ -41,21 +42,24 @@ jobs:
             echo "📦 Installing dependencies"
             rm -rf node_modules dist
             npm install
-            npm install @prisma/client
 
             echo "🔧 Generating Prisma Clients"
+            npm install @prisma/client
             npx prisma generate --schema=prisma/master/master.prisma
             npx prisma generate --schema=prisma/tenant/schema.prisma
 
             echo "🏗️ Building TypeScript"
             npx tsc
 
-            echo "📁 Copying Prisma master client to dist"
+            echo "📁 Copy Prisma clients to dist"
             mkdir -p dist/generated
-            cp -r src/generated/master dist/generated/
-            cp -r src/generated/tenant dist/generated/
+            cp -r src/generated/master dist/generated/ || true
+            cp -r src/generated/tenant dist/generated/ || true
 
-            echo "🚀 Starting server"
+            echo "🚀 Running environment loader"
             chmod +x scripts/load-env-and-start.sh
             ./scripts/load-env-and-start.sh
+
+            echo "🔒 Locking .env (read-only)"
+            chmod 400 .env
           '
