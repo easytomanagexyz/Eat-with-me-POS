@@ -111,16 +111,42 @@ import { budgetRoutes } from "./routes/budget";
 export async function createApp(): Promise<express.Express> {
   const app = express();
 
-  app.use(cors());
+  // ------------------------  
+  //  CORS - Read from .env  
+  // ------------------------
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map(origin => origin.trim())
+    : ["http://localhost:3000"]; // fallback for local dev
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error("Blocked by CORS: " + origin));
+      },
+      credentials: true,
+    })
+  );
+
+  // Body parser
   app.use(express.json());
 
-  // Public Routes
+  // ------------------------
+  // Public Routes (No Auth)
+  // ------------------------
   app.use("/api", authRoutes);
 
-  // All protected routes
+  // ------------------------
+  // Protected Routes
+  // ------------------------
   app.use("/api", authenticateToken);
   app.use("/api", tenantPrisma);
 
+  // ------------------------
+  // Tenant Routes
+  // ------------------------
   app.use("/api/staff", staffRoutes);
   app.use("/api/menu", menuRoutes);
   app.use("/api/orders", orderRoutes);
